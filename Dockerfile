@@ -14,7 +14,7 @@ COPY src src
 RUN ./gradlew --no-daemon clean build -x test
 
 # FASE 2: Rodar o projeto (Runtime)
-FROM eclipse-temurin:21-jre-jammy AS runtime
+FROM eclipse-temurin:25-jre-jammy AS runtime
 ENV JAVA_TOOL_OPTIONS="-XX:InitialRAMPercentage=25.0 -XX:MaxRAMPercentage=75.0"
 
 WORKDIR /app
