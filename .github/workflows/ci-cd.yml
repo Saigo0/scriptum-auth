@@ -36,6 +36,14 @@ jobs:
 
       # Nota: A instalação do Tesseract foi removida pois o Auth é 100% Java
 
+      # Adicione este bloco novo:
+      - name: Dar permissao de execucao ao Gradle
+        run: chmod +x gradlew
+
+      # Este é o bloco que já existia e estava dando erro:
+      - name: Executar testes e build Quarkus
+        run: ./gradlew --no-daemon unitTest integrationTest jacocoSonarReport quarkusBuild
+
       - name: Executar testes e build Quarkus
         # Verifique se o seu build.gradle possui essas tasks customizadas. 
         # Se não tiver, altere para: ./gradlew --no-daemon clean build jacocoTestReport
