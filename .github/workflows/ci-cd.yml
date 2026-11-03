@@ -42,7 +42,7 @@ jobs:
 
       # Este é o bloco que já existia e estava dando erro:
       - name: Executar testes e build Quarkus
-        run: ./gradlew --no-daemon unitTest integrationTest jacocoSonarReport quarkusBuild
+        run: ./gradlew --no-daemon clean test jacocoTestReport build
 
       - name: Executar testes e build Quarkus
         # Verifique se o seu build.gradle possui essas tasks customizadas. 
@@ -56,9 +56,8 @@ jobs:
           name: relatorios-testes-cobertura
           if-no-files-found: ignore
           path: |
-            build/reports/tests/unitTest/
-            build/reports/tests/integrationTest/
-            build/reports/jacoco/jacocoSonarReport/
+            build/reports/tests/test/
+            build/reports/jacoco/test/
 
       - name: Analisar e validar qualidade no SonarCloud
         uses: SonarSource/sonarqube-scan-action@v6
@@ -74,8 +73,8 @@ jobs:
             -Dsonar.tests=src/test/java
             -Dsonar.java.binaries=build/classes/java/main
             -Dsonar.java.test.binaries=build/classes/java/test
-            -Dsonar.coverage.jacoco.xmlReportPaths=build/reports/jacoco/jacocoSonarReport/jacocoSonarReport.xml
-            -Dsonar.junit.reportPaths=build/test-results/unitTest,build/test-results/integrationTest
+            -Dsonar.coverage.jacoco.xmlReportPaths=build/reports/jacoco/test/jacocoTestReport.xml
+            -Dsonar.junit.reportPaths=build/test-results/test
             -Dsonar.sourceEncoding=UTF-8
             -Dsonar.qualitygate.wait=true
 
