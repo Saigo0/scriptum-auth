@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'io.quarkus'
+    id 'jacoco'
 }
 
 repositories {
@@ -33,4 +34,12 @@ compileJava {
 
 compileTestJava {
     options.encoding = 'UTF-8'
+}
+
+jacocoTestReport {
+    dependsOn test 
+    reports {
+        xml.required = true
+        html.required = true
+    }
 }
