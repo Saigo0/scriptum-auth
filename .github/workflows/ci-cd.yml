@@ -26,8 +26,15 @@ jobs:
       - name: Dar permissao de execucao ao Gradle
         run: chmod +x gradlew
 
-      - name: Executar testes e build Quarkus
-        run: ./gradlew --no-daemon clean test jacocoTestReport build
+      - name: Executar testes, build Quarkus e análise SonarCloud
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: >
+          ./gradlew --no-daemon clean test jacocoTestReport build sonar
+          -Dsonar.projectKey=Saigo0_scriptum-auth
+          -Dsonar.organization=saigo0
+          -Dsonar.host.url=https://sonarcloud.io
 
       - name: Publicar relatórios de testes e cobertura
         uses: actions/upload-artifact@v4
@@ -38,25 +45,6 @@ jobs:
             build/reports/tests/test/
             build/reports/jacoco/test/
           retention-days: 7
-
-      - name: Analisar e validar qualidade no SonarCloud
-        uses: sonarsource/sonarcloud-github-action@v2.1.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
-            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
-            -Dsonar.host.url=https://sonarcloud.io
-            -Dsonar.sources=src/main/java
-            -Dsonar.tests=src/test/java
-            -Dsonar.java.binaries=build/classes/java/main
-            -Dsonar.java.test.binaries=build/classes/java/test
-            -Dsonar.coverage.jacoco.xmlReportPaths=build/reports/jacoco/test/jacocoTestReport.xml
-            -Dsonar.junit.reportPaths=build/test-results/test
-            -Dsonar.sourceEncoding=UTF-8
-            -Dsonar.qualitygate.wait=true
 
   implantar-homol:
     name: Publicar e Implantar em HOMOL (Main)
