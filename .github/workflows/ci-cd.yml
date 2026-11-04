@@ -132,9 +132,9 @@ jobs:
         run: |
           IMAGE_URL="docker.io/${DOCKERHUB_USERNAME}/scriptum-auth@${IMAGE_DIGEST}"
           echo "Solicitando deploy no Render da imagem ${IMAGE_URL}"
-          # curl --fail-with-body --silent --show-error --retry 3 \
-          #  --get --data-urlencode "imgURL=${IMAGE_URL}" \
-          #  "$RENDER_DEPLOY_HOOK_URL"
+           curl --fail-with-body --silent --show-error --retry 3 \
+            --get --data-urlencode "imgURL=${IMAGE_URL}" \
+            "$RENDER_DEPLOY_HOOK_URL"
 
   implantar-homol:
     name: Publicar e Implantar em HOMOL (Main)
