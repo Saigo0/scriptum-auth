@@ -20,7 +20,7 @@ dependencies {
 }
 
 group = 'br.com.scriptum'
-version = '1.0.0'
+version = file('VERSION').text.trim()
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
