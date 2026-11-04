@@ -8,7 +8,7 @@ on:
 
 jobs:
   validar:
-    name: Testes, build e SonarCloud
+    name: Testes e SonarCloud
     runs-on: ubuntu-latest
     steps:
       - name: Checkout do código
@@ -26,50 +26,19 @@ jobs:
       - name: Dar permissao de execucao ao Gradle
         run: chmod +x gradlew
 
-      - name: Executar testes e build Quarkus
-        run: ./gradlew --no-daemon clean test jacocoTestReport build
-
-      - name: Salvar pacote Quarkus compilado (Artefato)
-        uses: actions/upload-artifact@v4
-        with:
-          name: quarkus-app
-          path: build/quarkus-app/
-          retention-days: 1
-
-      - name: Publicar relatórios de testes e cobertura
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-reports
-          path: |
-            build/reports/tests/test/
-            build/reports/jacoco/test/
-          retention-days: 7
-
-      - name: Ocultar build.gradle
-        run: mv build.gradle build.gradle.bkp
-
-      - name: Analisar e validar qualidade no SonarCloud
-        uses: sonarsource/sonarcloud-github-action@v3.1.0
+      - name: Testes e Análise SonarCloud
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.projectKey=Saigo0_scriptum-auth
-            -Dsonar.organization=saigo0
-            -Dsonar.host.url=https://sonarcloud.io
-            -Dsonar.sources=src/main/java
-            -Dsonar.tests=src/test/java
-            -Dsonar.java.binaries=build/classes/java/main
-            -Dsonar.java.test.binaries=build/classes/java/test
-            -Dsonar.coverage.jacoco.xmlReportPaths=build/reports/jacoco/test/jacocoTestReport.xml
-            -Dsonar.junit.reportPaths=build/test-results/test
-            -Dsonar.sourceEncoding=UTF-8
-            -Dsonar.qualitygate.wait=true
+        run: >
+          ./gradlew --no-daemon clean test jacocoTestReport sonar
+          -Dsonar.projectKey=Saigo0_scriptum-auth
+          -Dsonar.organization=saigo0
+          -Dsonar.host.url=https://sonarcloud.io
+          -Dsonar.qualitygate.wait=false
 
   implantar-homol:
-    name: Publicar e Implantar em HOMOL (Main)
+    name: Publicar e Implantar (Homol)
     needs: validar
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -77,15 +46,19 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      - name: Baixar pacote Quarkus compilado
-        uses: actions/download-artifact@v4
+      - name: Configurar JDK 21
+        uses: actions/setup-java@v4
         with:
-          name: quarkus-app
-          path: build/quarkus-app/
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
 
-      - name: Ler e validar versão SemVer
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      - name: Compilar pacote Quarkus
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon build -x test
+
+      - name: Ler e validar versão (SemVer)
         run: |
           VERSION=$(cat VERSION | tr -d '\r\n ')
           if ! python3 - "$VERSION" <<'PY'
@@ -109,7 +82,7 @@ jobs:
       - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Preparar tags da imagem (HOMOL)
+      - name: Preparar tags (HOMOL)
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -126,21 +99,15 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Atualizar ambiente no Render
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_HOMOL_DEPLOY_HOOK_URL }}
-          IMAGE_URL: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/scriptum-auth:v${{ env.DOCKER_TAG_VERSION }}-homol
         run: |
-          echo "Solicitando deploy no Render da imagem ${IMAGE_URL}"
-          # curl --fail-with-body --silent --show-error --retry 3 \
-          #  --get --data-urlencode "imgURL=${IMAGE_URL}" \
-          #  "$RENDER_DEPLOY_HOOK_URL"
+          # curl --fail-with-body --silent --show-error --retry 3 --get --data-urlencode "imgURL=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/scriptum-auth:v${{ env.DOCKER_TAG_VERSION }}-homol" "$RENDER_DEPLOY_HOOK_URL"
 
   implantar-prod:
-    name: Publicar e Implantar em PROD (Release)
+    name: Publicar e Implantar (Prod)
     needs: validar
     if: startsWith(github.ref, 'refs/heads/release/')
     runs-on: ubuntu-latest
@@ -148,15 +115,19 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      - name: Baixar pacote Quarkus compilado
-        uses: actions/download-artifact@v4
+      - name: Configurar JDK 21
+        uses: actions/setup-java@v4
         with:
-          name: quarkus-app
-          path: build/quarkus-app/
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
 
-      - name: Ler e validar versão SemVer
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      - name: Compilar pacote Quarkus
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon build -x test
+
+      - name: Ler e validar versão (SemVer)
         run: |
           VERSION=$(cat VERSION | tr -d '\r\n ')
           if ! python3 - "$VERSION" <<'PY'
@@ -180,7 +151,7 @@ jobs:
       - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Preparar tags da imagem (PROD)
+      - name: Preparar tags (PROD)
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -197,15 +168,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Atualizar ambiente no Render
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_PROD_DEPLOY_HOOK_URL }}
-          IMAGE_URL: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/scriptum-auth:v${{ env.DOCKER_TAG_VERSION }}-prod
         run: |
-          echo "Solicitando deploy no Render da imagem ${IMAGE_URL}"
-          # curl --fail-with-body --silent --show-error --retry 3 \
-          #  --get --data-urlencode "imgURL=${IMAGE_URL}" \
-          #  "$RENDER_DEPLOY_HOOK_URL"
+          # curl --fail-with-body --silent --show-error --retry 3 --get --data-urlencode "imgURL=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/scriptum-auth:v${{ env.DOCKER_TAG_VERSION }}-prod" "$RENDER_DEPLOY_HOOK_URL"
