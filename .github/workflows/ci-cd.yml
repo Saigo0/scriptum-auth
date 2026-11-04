@@ -1,93 +1,75 @@
-name: CI/CD Scriptum Auth
+name: CI/CD Pipeline - Scriptum Auth
 
 on:
   push:
     branches:
-      - develop
       - main
-
-permissions:
-  contents: read
-
-concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: false
+      - 'release/**'
 
 jobs:
   validar:
     name: Testes, build e SonarCloud
     runs-on: ubuntu-latest
-    env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
-      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
     steps:
-      - name: Baixar código
+      - name: Checkout do código
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Configurar Java 21
+      - name: Configurar JDK 21
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
           java-version: '21'
+          distribution: 'temurin'
           cache: gradle
 
-      # Nota: A instalação do Tesseract foi removida pois o Auth é 100% Java
+      - name: Dar permissao de execucao ao Gradle
+        run: chmod +x gradlew
 
       - name: Executar testes e build Quarkus
-        # Verifique se o seu build.gradle possui essas tasks customizadas. 
-        # Se não tiver, altere para: ./gradlew --no-daemon clean build jacocoTestReport
-        run: ./gradlew --no-daemon unitTest integrationTest jacocoSonarReport quarkusBuild
-
-      - name: Publicar relatórios de testes e cobertura
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: relatorios-testes-cobertura
-          if-no-files-found: ignore
-          path: |
-            build/reports/tests/unitTest/
-            build/reports/tests/integrationTest/
-            build/reports/jacoco/jacocoSonarReport/
-
-      - name: Analisar e validar qualidade no SonarCloud
-        uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PROJECT_KEY: Saigo0_scriptum-auth
+          SONAR_ORGANIZATION: saigo0
+        run: ./gradlew --no-daemon clean test jacocoTestReport build
+
+      - name: Publicar relatórios de testes e cobertura
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: |
+            build/reports/tests/test/
+            build/reports/jacoco/test/
+          retention-days: 7
+
+      - name: Analisar e validar qualidade no SonarCloud
+        uses: sonarsource/sonarcloud-github-action@v2.1.1
+        env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
-            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
-            -Dsonar.host.url=https://sonarcloud.io
-            -Dsonar.sources=src/main/java
-            -Dsonar.tests=src/test/java
-            -Dsonar.java.binaries=build/classes/java/main
-            -Dsonar.java.test.binaries=build/classes/java/test
-            -Dsonar.coverage.jacoco.xmlReportPaths=build/reports/jacoco/jacocoSonarReport/jacocoSonarReport.xml
-            -Dsonar.junit.reportPaths=build/test-results/unitTest,build/test-results/integrationTest
-            -Dsonar.sourceEncoding=UTF-8
-            -Dsonar.qualitygate.wait=true
+            -Dsonar.projectKey=Saigo0_scriptum-auth
+            -Dsonar.organization=saigo0
+            -Dsonar.java.binaries=build/classes
+            -Dsonar.coverage.jacoco.xmlReportPaths=build/reports/jacoco/test/jacocoTestReport.xml
+            -Dsonar.junit.reportPaths=build/test-results/test
 
   implantar-homol:
-    name: Publicar e Implantar em HOMOL (Homolog)
+    name: Publicar e Implantar - Homologação
     needs: validar
-    if: ${{ github.ref == 'refs/heads/main' }}
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    env:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-    outputs:
-      digest: ${{ steps.build-image.outputs.digest }}
     steps:
-      - name: Baixar código
+      - name: Checkout do código
         uses: actions/checkout@v4
 
-      - name: Ler e validar versão SemVer
+      - name: Ler e validar versão (SemVer)
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          VERSION="$(cat VERSION)"
-          # Validação SemVer em Python mantida do arquivo original
+          VERSION=$(cat VERSION | tr -d '\r\n ')
           if ! python3 - "$VERSION" <<'PY'
           import re
           import sys
@@ -100,7 +82,7 @@ jobs:
           fi
           echo "DOCKER_TAG_VERSION=${VERSION%%+*}" >> "$GITHUB_ENV"
 
-      - name: Autenticar no Docker Hub
+      - name: Login no Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -109,52 +91,62 @@ jobs:
       - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Preparar tags da imagem (DEV)
-        id: docker-meta
+      - name: Preparar tags e Compilar
+        id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/scriptum-auth
           tags: |
             type=raw,value=v${{ env.DOCKER_TAG_VERSION }}-homol
-            type=sha,prefix=sha-
+            type=raw,value=latest-homol
 
-      - name: Compilar e publicar imagem no Docker Hub
-        id: build-image
-        uses: docker/build-push-action@v6
+      - name: Construir e enviar imagem Docker
+        uses: docker/build-push-action@v5
         with:
           context: .
+          file: src/main/docker/Dockerfile.jvm
           push: true
-          tags: ${{ steps.docker-meta.outputs.tags }}
-          labels: ${{ steps.docker-meta.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Implantar imagem em HOMOL no Render
+      - name: Atualizar ambiente no Render
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_HOMOL_DEPLOY_HOOK_URL }}
-          IMAGE_DIGEST: ${{ steps.build-image.outputs.digest }}
+          IMAGE_URL: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/scriptum-auth:v${{ env.DOCKER_TAG_VERSION }}-homol
         run: |
-          IMAGE_URL="docker.io/${DOCKERHUB_USERNAME}/scriptum-auth@${IMAGE_DIGEST}"
-          echo "Solicitando deploy no Render da imagem ${IMAGE_URL}"
-          curl --fail-with-body --silent --show-error --retry 3 \
-            --get --data-urlencode "imgURL=${IMAGE_URL}" \
-            "$RENDER_DEPLOY_HOOK_URL"
+          # curl --fail-with-body --silent --show-error --retry 3 \
+          #  --get --data-urlencode "imgURL=${IMAGE_URL}" \
+          #  "$RENDER_DEPLOY_HOOK_URL"
 
   implantar-prod:
-    name: Publicar e Implantar em PROD (Main)
+    name: Publicar e Implantar - Produção
     needs: validar
-    if: ${{ github.ref == 'refs/heads/release/' }}
+    if: startsWith(github.ref, 'refs/heads/release/')
     runs-on: ubuntu-latest
-    env:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
     steps:
-      - name: Baixar código
+      - name: Checkout do código
         uses: actions/checkout@v4
-      
-      - name: Ler e validar versão SemVer
+
+      - name: Ler e validar versão (SemVer)
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          VERSION="$(cat VERSION)"
+          VERSION=$(cat VERSION | tr -d '\r\n ')
+          if ! python3 - "$VERSION" <<'PY'
+          import re
+          import sys
+          pattern = r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$'
+          sys.exit(0 if re.fullmatch(pattern, sys.argv[1]) else 1)
+          PY
+          then
+            echo "::error::VERSION não contém uma versão SemVer válida"
+            exit 1
+          fi
           echo "DOCKER_TAG_VERSION=${VERSION%%+*}" >> "$GITHUB_ENV"
 
-      - name: Autenticar no Docker Hub
+      - name: Login no Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -163,31 +155,31 @@ jobs:
       - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Preparar tags da imagem (PROD)
-        id: docker-meta
+      - name: Preparar tags e Compilar
+        id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/scriptum-auth
           tags: |
             type=raw,value=v${{ env.DOCKER_TAG_VERSION }}-prod
-            type=sha,prefix=sha-
+            type=raw,value=latest
 
-      - name: Compilar e publicar imagem no Docker Hub
-        id: build-image
-        uses: docker/build-push-action@v6
+      - name: Construir e enviar imagem Docker
+        uses: docker/build-push-action@v5
         with:
           context: .
+          file: src/main/docker/Dockerfile.jvm
           push: true
-          tags: ${{ steps.docker-meta.outputs.tags }}
-          labels: ${{ steps.docker-meta.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Implantar imagem em PROD no Render
+      - name: Atualizar ambiente no Render
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_PROD_DEPLOY_HOOK_URL }}
-          IMAGE_DIGEST: ${{ steps.build-image.outputs.digest }}
+          IMAGE_URL: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/scriptum-auth:v${{ env.DOCKER_TAG_VERSION }}-prod
         run: |
-          IMAGE_URL="docker.io/${DOCKERHUB_USERNAME}/scriptum-auth@${IMAGE_DIGEST}"
-          echo "Solicitando deploy no Render da imagem ${IMAGE_URL}"
-          curl --fail-with-body --silent --show-error --retry 3 \
-            --get --data-urlencode "imgURL=${IMAGE_URL}" \
-            "$RENDER_DEPLOY_HOOK_URL"
+          # curl --fail-with-body --silent --show-error --retry 3 \
+          #  --get --data-urlencode "imgURL=${IMAGE_URL}" \
+          #  "$RENDER_DEPLOY_HOOK_URL"
