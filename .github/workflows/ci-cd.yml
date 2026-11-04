@@ -29,6 +29,13 @@ jobs:
       - name: Executar testes e build Quarkus
         run: ./gradlew --no-daemon clean test jacocoTestReport build
 
+      - name: Salvar pacote Quarkus compilado (Artefato)
+        uses: actions/upload-artifact@v4
+        with:
+          name: quarkus-app
+          path: build/quarkus-app/
+          retention-days: 1
+
       - name: Publicar relatórios de testes e cobertura
         uses: actions/upload-artifact@v4
         if: always()
@@ -69,6 +76,12 @@ jobs:
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
+
+      - name: Baixar pacote Quarkus compilado
+        uses: actions/download-artifact@v4
+        with:
+          name: quarkus-app
+          path: build/quarkus-app/
 
       - name: Ler e validar versão SemVer
         env:
@@ -134,6 +147,12 @@ jobs:
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
+
+      - name: Baixar pacote Quarkus compilado
+        uses: actions/download-artifact@v4
+        with:
+          name: quarkus-app
+          path: build/quarkus-app/
 
       - name: Ler e validar versão SemVer
         env:
