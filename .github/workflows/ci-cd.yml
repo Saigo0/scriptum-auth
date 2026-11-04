@@ -71,10 +71,10 @@ jobs:
             -Dsonar.sourceEncoding=UTF-8
             -Dsonar.qualitygate.wait=true
 
-  implantar-dev:
-    name: Publicar e Implantar em DEV (Develop)
+  implantar-homol:
+    name: Publicar e Implantar em HOMOL (Homolog)
     needs: validar
-    if: ${{ github.ref == 'refs/heads/develop' }}
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     env:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -115,7 +115,7 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/scriptum-auth
           tags: |
-            type=raw,value=v${{ env.DOCKER_TAG_VERSION }}-dev
+            type=raw,value=v${{ env.DOCKER_TAG_VERSION }}-homol
             type=sha,prefix=sha-
 
       - name: Compilar e publicar imagem no Docker Hub
@@ -127,9 +127,9 @@ jobs:
           tags: ${{ steps.docker-meta.outputs.tags }}
           labels: ${{ steps.docker-meta.outputs.labels }}
 
-      - name: Implantar imagem em DEV no Render
+      - name: Implantar imagem em HOMOL no Render
         env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEV_DEPLOY_HOOK_URL }}
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_HOMOL_DEPLOY_HOOK_URL }}
           IMAGE_DIGEST: ${{ steps.build-image.outputs.digest }}
         run: |
           IMAGE_URL="docker.io/${DOCKERHUB_USERNAME}/scriptum-auth@${IMAGE_DIGEST}"
@@ -138,10 +138,10 @@ jobs:
             --get --data-urlencode "imgURL=${IMAGE_URL}" \
             "$RENDER_DEPLOY_HOOK_URL"
 
-  implantar-homol:
-    name: Publicar e Implantar em HOMOL (Main)
+  implantar-prod:
+    name: Publicar e Implantar em PROD (Main)
     needs: validar
-    if: ${{ github.ref == 'refs/heads/main' }}
+    if: ${{ github.ref == 'refs/heads/release/' }}
     runs-on: ubuntu-latest
     env:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -163,13 +163,13 @@ jobs:
       - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Preparar tags da imagem (HOMOL)
+      - name: Preparar tags da imagem (PROD)
         id: docker-meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/scriptum-auth
           tags: |
-            type=raw,value=v${{ env.DOCKER_TAG_VERSION }}-homol
+            type=raw,value=v${{ env.DOCKER_TAG_VERSION }}-prod
             type=sha,prefix=sha-
 
       - name: Compilar e publicar imagem no Docker Hub
@@ -181,9 +181,9 @@ jobs:
           tags: ${{ steps.docker-meta.outputs.tags }}
           labels: ${{ steps.docker-meta.outputs.labels }}
 
-      - name: Implantar imagem em HOMOL no Render
+      - name: Implantar imagem em PROD no Render
         env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_HOMOL_DEPLOY_HOOK_URL }}
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_PROD_DEPLOY_HOOK_URL }}
           IMAGE_DIGEST: ${{ steps.build-image.outputs.digest }}
         run: |
           IMAGE_URL="docker.io/${DOCKERHUB_USERNAME}/scriptum-auth@${IMAGE_DIGEST}"
