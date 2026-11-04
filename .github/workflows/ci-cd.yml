@@ -118,7 +118,7 @@ jobs:
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_HOMOL_DEPLOY_HOOK_URL }}
         run: |
-          # curl --fail-with-body --silent --show-error --retry 3 --get --data-urlencode "imgURL=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/scriptum-auth:v${{ env.DOCKER_TAG_VERSION }}-homol" "$RENDER_DEPLOY_HOOK_URL"
+           curl --fail-with-body --silent --show-error --retry 3 --get --data-urlencode "imgURL=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/scriptum-auth:v${{ env.DOCKER_TAG_VERSION }}-homol" "$RENDER_DEPLOY_HOOK_URL"
 
   implantar-prod:
     name: Publicar e Implantar (Prod)
@@ -187,4 +187,4 @@ jobs:
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_PROD_DEPLOY_HOOK_URL }}
         run: |
-          # curl --fail-with-body --silent --show-error --retry 3 --get --data-urlencode "imgURL=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/scriptum-auth:v${{ env.DOCKER_TAG_VERSION }}-prod" "$RENDER_DEPLOY_HOOK_URL"
+           curl --fail-with-body --silent --show-error --retry 3 --get --data-urlencode "imgURL=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/scriptum-auth:v${{ env.DOCKER_TAG_VERSION }}-prod" "$RENDER_DEPLOY_HOOK_URL"
