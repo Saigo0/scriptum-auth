@@ -26,16 +26,30 @@ jobs:
       - name: Dar permissao de execucao ao Gradle
         run: chmod +x gradlew
 
-      - name: Testes e Análise SonarCloud
+      - name: Executar testes e gerar relatorios
+        run: ./gradlew --no-daemon clean test jacocoTestReport
+
+      - name: Truque DevOps - Ocultar build.gradle
+        run: mv build.gradle build.gradle.bkp
+
+      - name: Analisar no SonarCloud
+        uses: sonarsource/sonarcloud-github-action@v3.1.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: >
-          ./gradlew --no-daemon clean test jacocoTestReport sonar
-          -Dsonar.projectKey=Saigo0_scriptum-auth
-          -Dsonar.organization=saigo0
-          -Dsonar.host.url=https://sonarcloud.io
-          -Dsonar.qualitygate.wait=false
+        with:
+          args: >
+            -Dsonar.projectKey=Saigo0_scriptum-auth
+            -Dsonar.organization=saigo0
+            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.sources=src/main/java
+            -Dsonar.tests=src/test/java
+            -Dsonar.java.binaries=build/classes/java/main
+            -Dsonar.java.test.binaries=build/classes/java/test
+            -Dsonar.coverage.jacoco.xmlReportPaths=build/reports/jacoco/test/jacocoTestReport.xml
+            -Dsonar.junit.reportPaths=build/test-results/test
+            -Dsonar.sourceEncoding=UTF-8
+            -Dsonar.qualitygate.wait=false
 
   implantar-homol:
     name: Publicar e Implantar (Homol)
