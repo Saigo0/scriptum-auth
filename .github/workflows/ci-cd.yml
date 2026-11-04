@@ -39,6 +39,9 @@ jobs:
             build/reports/jacoco/test/
           retention-days: 7
 
+      - name: Ocultar build.gradle
+        run: mv build.gradle build.gradle.bkp
+
       - name: Analisar e validar qualidade no SonarCloud
         uses: sonarsource/sonarcloud-github-action@v2.1.1
         env:
