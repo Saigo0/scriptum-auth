@@ -172,7 +172,6 @@ jobs:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/scriptum-auth
           tags: |
             type=raw,value=v${{ env.DOCKER_TAG_VERSION }}-prod
-            type=raw,value=latest
 
       - name: Construir e enviar imagem Docker
         uses: docker/build-push-action@v5
