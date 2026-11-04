@@ -27,18 +27,17 @@ public class AuthResource {
     @POST
     @Path("/login")
     public Response login(LoginRequest request) {
+
         if ("admin".equals(request.usuario) && "123456".equals(request.senha)) {
-            
-            SecretKey key = new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
 
             String token = Jwt.issuer("scriptum-issuer")
                               .upn(request.usuario)
                               .claim("role", "admin")
-                              .jws()
-                              .sign(key); 
+                              .sign(); 
 
             return Response.ok("{\"token\":\"" + token + "\"}").build();
         }
+
         return Response.status(Response.Status.UNAUTHORIZED).entity("Credenciais inválidas").build();
     }
 }
