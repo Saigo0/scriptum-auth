@@ -10,6 +10,9 @@ import jakarta.ws.rs.core.Response;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
 import java.nio.charset.StandardCharsets;
 
 @Path("/auth")
@@ -17,7 +20,8 @@ import java.nio.charset.StandardCharsets;
 @Consumes(MediaType.APPLICATION_JSON)
 public class AuthResource {
 
-    private static final String SECRET = "scriptum-chave-secreta-super-segura-32-bytes";
+    @ConfigProperty(name = "jwt.secret.key")
+    String secret;
 
     public static class LoginRequest {
         public String usuario;
@@ -31,9 +35,9 @@ public class AuthResource {
         if ("admin".equals(request.usuario) && "123456".equals(request.senha)) {
 
             String token = Jwt.issuer("scriptum-issuer")
-                              .upn(request.usuario)
-                              .claim("role", "admin")
-                              .sign(); 
+                            .upn(request.usuario)
+                            .claim("role", "admin")
+                            .signWithSecret(secret); 
 
             return Response.ok("{\"token\":\"" + token + "\"}").build();
         }
