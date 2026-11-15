@@ -105,7 +105,7 @@ jobs:
             type=raw,value=v${{ env.DOCKER_TAG_VERSION }}-homol
 
       - name: Construir e enviar imagem Docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: src/main/docker/Dockerfile.jvm
@@ -173,7 +173,7 @@ jobs:
             type=raw,value=v${{ env.DOCKER_TAG_VERSION }}-prod
 
       - name: Construir e enviar imagem Docker
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: src/main/docker/Dockerfile.jvm
