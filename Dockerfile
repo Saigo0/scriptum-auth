@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # FASE 1: Construção (Build)
-FROM gradle:8.14-jdk21 AS build
+FROM gradle:9.9-jdk21 AS build
 WORKDIR /workspace
 
 COPY --chmod=755 gradlew gradlew
